@@ -1,9 +1,14 @@
 package example.concurrency.sockets.single;
 
-import example.concurrency.SampleWebClient;
-import example.concurrency.SampleWebServer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import example.concurrency.SampleWebClient;
+import example.concurrency.SampleWebServer;
 
 public class SingleThreadWebTest {
 
@@ -16,18 +21,28 @@ public class SingleThreadWebTest {
     public void test() throws Exception {
 
         SampleWebServer server = new SingleThreadWebServer();
-        server.start(PORT, REQUESTS_NUMBER);
+        final AtomicInteger sum = new AtomicInteger();
+        server.start(PORT, REQUESTS_NUMBER, is -> {
+            try (DataInputStream dis = new DataInputStream(is)) {
+                int value = dis.readInt();
+                sum.addAndGet(value);
+            }
+        });
 
+        final AtomicInteger counter = new AtomicInteger();
         SampleWebClient client = new SingleThreadWebClient();
-        client.send(HOST, PORT, REQUESTS_NUMBER);
+        client.send(HOST, PORT, REQUESTS_NUMBER, os -> {
+            DataOutputStream dos = new DataOutputStream(os);
+            int value = counter.getAndIncrement();
+            dos.writeInt(value);
+        });
 
+        client.join(TIMEOUT);
         server.join(TIMEOUT);
-        String result = server.getResult();
 
-        int actual = Integer.parseInt(result);
         int N = REQUESTS_NUMBER;
         int expected = N * (N - 1) / 2;
-        Assertions.assertEquals(expected, actual);
+        Assertions.assertEquals(expected, sum.get());
         client.join(TIMEOUT);
     }
 }

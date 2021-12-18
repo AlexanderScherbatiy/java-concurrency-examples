@@ -1,26 +1,25 @@
 package example.concurrency.sockets.single;
 
-import example.concurrency.SampleWebClient;
-
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.Socket;
+
+import example.concurrency.SampleProducer;
+import example.concurrency.SampleWebClient;
 
 public class SingleThreadWebClient implements SampleWebClient {
 
     private Thread clientThread;
 
     @Override
-    public void send(String host, int port, int requestNumbers) {
+    public void send(String host, int port, int requestNumbers, SampleProducer producer) {
 
         clientThread = new Thread(() -> {
             try {
                 for (int i = 0; i < requestNumbers; i++) {
                     try (Socket client = new Socket(host, port);
-                         OutputStream os = client.getOutputStream();
-                         PrintWriter writer = new PrintWriter(os, true)) {
-                        writer.println(i);
+                         OutputStream os = client.getOutputStream()) {
+                        producer.produce(os);
                     }
                 }
             } catch (IOException e) {
